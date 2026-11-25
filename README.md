@@ -1,6 +1,6 @@
 # atlas-fat
 
-<!-- badges -->[![crates.io](https://img.shields.io/crates/v/atlas-fat.svg)](https://crates.io/crates/atlas-fat) [![docs.rs](https://img.shields.io/docsrs/atlas-fat)](https://docs.rs/atlas-fat) [![CI](https://github.com/05Narwhal/atlas-fat/actions/workflows/ci.yml/badge.svg)](https://github.com/05Narwhal/atlas-fat/actions/workflows/ci.yml) ![License](https://img.shields.io/crates/l/atlas-fat.svg)
+[![crates.io](https://img.shields.io/crates/v/atlas-fat.svg)](https://crates.io/crates/atlas-fat) [![docs.rs](https://img.shields.io/docsrs/atlas-fat)](https://docs.rs/atlas-fat) [![CI](https://github.com/05Narwhal/atlas-fat/actions/workflows/ci.yml/badge.svg)](https://github.com/05Narwhal/atlas-fat/actions/workflows/ci.yml) ![License](https://img.shields.io/crates/l/atlas-fat.svg)
 
 A read-only FAT12, FAT16 and FAT32 reader. It implements `atlas_fs_core::fs::FileSystem`, so a mounted volume
 lists folders, looks up names, reads file content and reports its allocation through the same trait as the
