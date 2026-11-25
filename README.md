@@ -2,31 +2,57 @@
 
 [![crates.io](https://img.shields.io/crates/v/atlas-fat.svg)](https://crates.io/crates/atlas-fat) [![docs.rs](https://img.shields.io/docsrs/atlas-fat)](https://docs.rs/atlas-fat) [![CI](https://github.com/05Narwhal/atlas-fat/actions/workflows/ci.yml/badge.svg)](https://github.com/05Narwhal/atlas-fat/actions/workflows/ci.yml) ![License](https://img.shields.io/crates/l/atlas-fat.svg)
 
-A read-only FAT12, FAT16 and FAT32 reader. It implements `atlas_fs_core::fs::FileSystem`, so a mounted volume
-lists folders, looks up names, reads file content and reports its allocation through the same trait as the
-other `atlas-*` readers.
+**A read-only FAT12, FAT16 and FAT32 reader.**
 
-- Boot sector and BPB checks for all three FAT types, FAT32 root cluster chains.
-- Short (8.3, OEM code page 437) and long (UTF-16) names, with the case flags Windows NT writes.
-- Cluster chains read through a bounded, loop-checked walker; a damaged FAT is an error, not a hang.
-- No `unsafe`. Every length, offset and count read from the disk is checked; damage is an error, not a panic.
+FAT is on SD cards, USB sticks, firmware partitions and old DOS and Windows disks. `atlas-fat` mounts those volumes from any `BlockSource` and implements `atlas_fs_core::fs::FileSystem`, so folders, names, file content and allocation come through the same trait as every other `atlas-*` reader.
 
-The cluster-chain walker (`chain`) is public because the exFAT, ISO 9660 and UDF readers build on it.
+## Features
+
+- Boot sector and BPB checks for all three FAT types, including the FAT32 root cluster chain.
+- **Short names** (8.3, OEM code page 437) and **long names** (UTF-16), with the case flags Windows NT writes.
+- Cluster chains are read through a bounded, loop-checked walker, so a damaged FAT is an error and never a hang.
+- Allocation reporting through the shared trait.
+
+## Quick start
 
 ```rust,no_run
+use std::path::Path;
 use std::sync::Arc;
-use atlas_fs_core::fs::FileSystem;
-use atlas_fs_core::io::block::BlockSource;
+
+use atlas_fs_core::fs::{DirBatch, DirProgress, FileSystem};
 use atlas_fs_core::io::file::FileSource;
 
-let source: Arc<dyn BlockSource> = Arc::new(FileSource::open("volume.img".as_ref())?);
+let source = Arc::new(FileSource::open(Path::new("volume.img"))?);
 let volume = atlas_fat::mount(source)?;
-let mut dir = volume.read_dir(volume.root())?;
-# Ok::<(), atlas_fs_core::error::Error>(())
+println!("{}", volume.info().name);
+
+let mut stream = volume.read_dir(volume.root())?;
+let mut batch = DirBatch::new();
+while stream.next_batch(&mut batch, 256)? == DirProgress::More {}
+for entry in batch.iter() {
+    println!("{}", entry.name);
+}
 ```
 
-The `test-util` feature exposes the test volume builder and fuzz seed inputs; it is for tests of crates that use
-this one and is not part of the stable API.
+## How it works
+
+`mount` parses the boot sector (`boot`), loads the first FAT (`table`) and answers `FileSystem` calls. Directories are walked by `dir::Walker` over a cluster `chain::Chain`; a file's content is the chain of its clusters cut to its size.
+
+Node ids are the volume byte offset of the entry's short-name record. The root of FAT12 and FAT16 is `NodeId(0)`; the root of FAT32 is the first byte of the root cluster plus one, which cannot collide with an entry offset (always a multiple of 32).
+
+The cluster-chain walker is public because the **exFAT**, **ISO 9660** and **UDF** readers build on it.
+
+## Safety and robustness
+
+- **No `unsafe`.** The crate is `#![forbid(unsafe_code)]`.
+- **On-disk bytes are hostile.** Every length, offset and count read from a disk is validated before use. Damage is returned as an error, never a panic, an unchecked index or an unbounded loop.
+- **Lints enforce it.** Clippy's `indexing_slicing`, `arithmetic_side_effects`, `unwrap_used`, `expect_used` and `panic` lints are on for the library code.
+- **Read-only.** Nothing in this crate writes to a disk or image.
+- **Fuzzed.** A `cargo-fuzz` target in `fuzz/` runs the parser on arbitrary bytes.
+
+## Feature flags
+
+- `test-util`: exposes the synthetic test image builders and fuzz seed inputs this crate's own tests use, for tests of crates built on it. It is not part of the stable API.
 
 ## Install
 
@@ -35,7 +61,9 @@ this one and is not part of the stable API.
 atlas-fat = "26.0.1-a"
 ```
 
-Minimum supported Rust version: 1.88.
+Versions follow `26.MAJOR.MINOR-STAGE`: the year, the major and minor version, and a stage letter (`a` alpha, `b` beta, `s` stable). Cargo treats a stage suffix as a pre-release, so name the version exactly as above.
+
+Minimum supported Rust version: 1.88 (edition 2024).
 
 ## Licence
 
